@@ -213,38 +213,33 @@ export class Jellyseerr implements INodeType {
 					return this.helpers.httpRequestWithAuthentication.call(this, 'jellyseerrApi', options);
 				};
 
-				let response: unknown;
+				const param = <T>(name: string, fallback?: T) =>
+					this.getNodeParameter(name, i, fallback as T) as T;
 
-				if (resource === 'status') {
-					response = await request('GET', '/api/v1/status');
-				} else if (resource === 'user') {
-					response = await request('GET', '/api/v1/user');
-				} else if (resource === 'media') {
-					response = await request('GET', '/api/v1/media');
-				} else if (resource === 'search') {
-					const query = this.getNodeParameter('query', i) as string;
-					response = await request('GET', '/api/v1/search', { qs: { query } });
-				} else if (resource === 'request') {
-					if (operation === 'getMany') {
-						const filters = this.getNodeParameter('requestFilters', i, {}) as IDataObject;
-						response = await request('GET', '/api/v1/request', { qs: filters });
-					} else if (operation === 'get') {
-						const requestId = this.getNodeParameter('requestId', i) as number;
-						response = await request('GET', `/api/v1/request/${requestId}`);
-					} else if (operation === 'approve' || operation === 'decline') {
-						const requestId = this.getNodeParameter('requestId', i) as number;
-						response = await request('POST', `/api/v1/request/${requestId}/${operation}`);
-					} else if (operation === 'delete') {
-						const requestId = this.getNodeParameter('requestId', i) as number;
+				const setRequestStatus = (status: 'approve' | 'decline') =>
+					request('POST', `/api/v1/request/${param<number>('requestId')}/${status}`);
+
+				const handlers: Record<string, () => Promise<unknown>> = {
+					'status:get': () => request('GET', '/api/v1/status'),
+					'user:getMany': () => request('GET', '/api/v1/user'),
+					'media:getMany': () => request('GET', '/api/v1/media'),
+					'search:search': () =>
+						request('GET', '/api/v1/search', { qs: { query: param<string>('query') } }),
+					'request:getMany': () =>
+						request('GET', '/api/v1/request', { qs: param<IDataObject>('requestFilters', {}) }),
+					'request:get': () => request('GET', `/api/v1/request/${param<number>('requestId')}`),
+					'request:approve': () => setRequestStatus('approve'),
+					'request:decline': () => setRequestStatus('decline'),
+					'request:delete': async () => {
+						const requestId = param<number>('requestId');
 						await request('DELETE', `/api/v1/request/${requestId}`);
-						response = { success: true, requestId };
-					} else {
-						// create
-						const mediaType = this.getNodeParameter('mediaType', i) as string;
-						const mediaId = this.getNodeParameter('mediaId', i) as number;
-						const body: IDataObject = { mediaType, mediaId };
+						return { success: true, requestId };
+					},
+					'request:create': () => {
+						const mediaType = param<string>('mediaType');
+						const body: IDataObject = { mediaType, mediaId: param<number>('mediaId') };
 						if (mediaType === 'tv') {
-							const seasons = this.getNodeParameter('seasons', i, 'all') as string;
+							const seasons = param<string>('seasons', 'all');
 							body.seasons =
 								seasons.trim().toLowerCase() === 'all'
 									? 'all'
@@ -253,13 +248,19 @@ export class Jellyseerr implements INodeType {
 											.map((s) => Number(s.trim()))
 											.filter((n) => !Number.isNaN(n));
 						}
-						response = await request('POST', '/api/v1/request', { body });
-					}
-				} else {
-					throw new NodeOperationError(this.getNode(), `Unknown resource: ${resource}`, {
-						itemIndex: i,
-					});
+						return request('POST', '/api/v1/request', { body });
+					},
+				};
+
+				const handler = handlers[`${resource}:${operation}`];
+				if (!handler) {
+					throw new NodeOperationError(
+						this.getNode(),
+						`Unsupported operation: ${resource} / ${operation}`,
+						{ itemIndex: i },
+					);
 				}
+				const response = await handler();
 
 				if (Array.isArray(response)) {
 					for (const element of response) {
