@@ -16,7 +16,7 @@ export class Jellyseerr implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Jellyseerr',
 		name: 'jellyseerr',
-		icon: { light: 'file:jellyseerr.svg', dark: 'file:jellyseerr.svg' },
+		icon: { light: 'file:jellyseerr.svg', dark: 'file:jellyseerr.dark.svg' },
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + " : " + $parameter["resource"]}}',
