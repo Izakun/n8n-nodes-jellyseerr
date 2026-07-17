@@ -28,6 +28,19 @@ Create an **Jellyseerr API** credential:
 - **Base URL** — e.g. `http://jellyseerr:5055`.
 - **API Key** — Jellyseerr → Settings → General → API Key. Sent as `X-Api-Key`.
 
+## Usage example
+
+List media requests:
+
+1. Add the node after a trigger (e.g. *When clicking 'Test workflow'*).
+2. Select your credential.
+3. Resource **Request** → **Get Many**.
+4. Execute the node — example output:
+
+```json
+{ "pageInfo": { "results": 3 }, "results": [ { "id": 2, "type": "movie", "status": 2 } ] }
+```
+
 ## Disclaimer
 
 This project isn't affiliated with or endorsed by the Jellyseerr project. Jellyseerr is the
